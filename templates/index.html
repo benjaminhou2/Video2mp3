@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video2Voice - YouTube 视频转音频</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- 主容器 -->
+    <div class="container">
+        <!-- 页面标题 -->
+        <header class="header">
+            <div class="logo">
+                <!-- 使用 SVG 创建音乐图标 -->
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="20" cy="20" r="18" fill="#007AFF" opacity="0.1"/>
+                    <path d="M28 10L16 12V28C16 29.66 14.66 31 13 31C11.34 31 10 29.66 10 28C10 26.34 11.34 25 13 25C13.68 25 14.31 25.21 14.83 25.56V10L28 8V22C28 23.66 26.66 25 25 25C23.34 25 22 23.66 22 22C22 20.34 23.34 19 25 19C25.68 19 26.31 19.21 26.83 19.56V10H28Z" fill="#007AFF"/>
+                </svg>
+            </div>
+            <div>
+                <h1>Video2Voice</h1>
+                <p class="subtitle">YouTube 视频转音频工具</p>
+            </div>
+        </header>
+
+        <!-- 任务输入区域 -->
+        <div class="card">
+            <h2>添加下载任务</h2>
+            
+            <!-- 任务列表容器 -->
+            <div id="taskList">
+                <!-- 默认的第一个任务输入框 -->
+                <div class="task-item">
+                    <div class="input-group">
+                        <label>视频 URL</label>
+                        <input type="text" 
+                               class="input url-input" 
+                               placeholder="https://www.youtube.com/watch?v=..." 
+                               required>
+                    </div>
+                    <div class="input-group">
+                        <label>文件名（可选）</label>
+                        <input type="text" 
+                               class="input filename-input" 
+                               placeholder="留空则使用视频标题">
+                    </div>
+                    <button class="btn-remove" onclick="removeTask(this)" style="display: none;">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="button-group">
+                <button class="btn btn-secondary" onclick="addTask()">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    添加更多任务
+                </button>
+                <button class="btn btn-primary" onclick="startDownload()">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M8 2V12M8 12L4 8M8 12L12 8M2 14H14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    开始下载
+                </button>
+            </div>
+        </div>
+
+        <!-- 下载进度显示区域 -->
+        <div class="card" id="progressSection" style="display: none;">
+            <div class="section-header">
+                <h2>下载进度</h2>
+                <button class="btn-clear" onclick="clearCompleted()">清除已完成</button>
+            </div>
+            <div id="progressList"></div>
+        </div>
+
+        <!-- 已下载文件列表区域 -->
+        <div class="card" id="filesSection">
+            <div class="section-header">
+                <h2>已下载的音频文件</h2>
+                <button class="btn-clear" onclick="refreshFiles()">刷新</button>
+            </div>
+            <div id="filesList">
+                <p style="text-align: center; color: #86868b; padding: 20px;">加载中...</p>
+            </div>
+        </div>
+
+        <!-- 页脚信息 -->
+        <footer class="footer">
+            <p>💡 提示：请确保已安装 ffmpeg，并遵守 YouTube 服务条款</p>
+            <p class="footer-note">下载的音频文件保存在 downloads/mp3 目录中</p>
+        </footer>
+    </div>
+
+    <!-- 引入 JavaScript -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
+

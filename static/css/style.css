@@ -1,0 +1,935 @@
+/**
+ * Video2Voice 样式文件
+ * 遵循 Apple 设计语言：简洁、优雅、现代
+ */
+
+/* ============================================
+   基础样式和重置
+   ============================================ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    min-height: 100vh;
+    padding: 20px;
+    color: #1d1d1f;
+    line-height: 1.6;
+}
+
+/* ============================================
+   主容器
+   ============================================ */
+
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+/* ============================================
+   页面头部
+   ============================================ */
+
+.header {
+    text-align: center;
+    margin-bottom: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+}
+
+.logo {
+    animation: float 3s ease-in-out infinite;
+}
+
+/* Logo 浮动动画 */
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0px);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #1d1d1f;
+    margin-bottom: 8px;
+}
+
+.subtitle {
+    font-size: 1.1rem;
+    color: #86868b;
+    font-weight: 400;
+}
+
+/* ============================================
+   卡片容器
+   ============================================ */
+
+.card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    padding: 30px;
+    margin-bottom: 24px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 50px rgba(0, 0, 0, 0.12);
+}
+
+.card h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 24px;
+    color: #1d1d1f;
+}
+
+/* ============================================
+   任务输入项
+   ============================================ */
+
+.task-item {
+    background: #f5f5f7;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.task-item:hover {
+    background: #ebebed;
+}
+
+.input-group {
+    margin-bottom: 16px;
+}
+
+.input-group:last-child {
+    margin-bottom: 0;
+}
+
+.input-group label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #1d1d1f;
+    margin-bottom: 8px;
+}
+
+/* ============================================
+   输入框样式
+   ============================================ */
+
+.input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid transparent;
+    border-radius: 10px;
+    font-size: 1rem;
+    background: #ffffff;
+    transition: all 0.3s ease;
+    font-family: inherit;
+}
+
+.input:focus {
+    outline: none;
+    border-color: #007AFF;
+    box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+}
+
+.input::placeholder {
+    color: #86868b;
+}
+
+/* ============================================
+   按钮样式
+   ============================================ */
+
+.button-group {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.btn {
+    flex: 1;
+    padding: 14px 24px;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-family: inherit;
+}
+
+/* 主要按钮（蓝色） */
+.btn-primary {
+    background: #007AFF;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #0051D5;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 122, 255, 0.3);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+/* 次要按钮（灰色） */
+.btn-secondary {
+    background: #f5f5f7;
+    color: #1d1d1f;
+}
+
+.btn-secondary:hover {
+    background: #e8e8ed;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* 移除按钮 */
+.btn-remove {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: #ff3b30;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.btn-remove:hover {
+    background: #d32f2f;
+    transform: rotate(90deg);
+}
+
+/* 清除按钮 */
+.btn-clear {
+    padding: 8px 16px;
+    background: #f5f5f7;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #1d1d1f;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-clear:hover {
+    background: #e8e8ed;
+}
+
+/* ============================================
+   进度显示区域 - 优化版
+   ============================================ */
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.progress-item {
+    background: #f5f5f7;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 16px;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.progress-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.progress-item:last-child {
+    margin-bottom: 0;
+}
+
+/* 不同状态的进度项颜色 */
+.progress-item.completed {
+    background: linear-gradient(135deg, #d4f1d4 0%, #c8e6c9 100%);
+    border-left: 4px solid #34c759;
+}
+
+.progress-item.error {
+    background: linear-gradient(135deg, #ffd4d4 0%, #ffcdd2 100%);
+    border-left: 4px solid #ff3b30;
+}
+
+.progress-item.downloading {
+    background: linear-gradient(135deg, #d4e7ff 0%, #bbdefb 100%);
+    border-left: 4px solid #007AFF;
+    animation: pulse-border 2s ease-in-out infinite;
+}
+
+.progress-item.converting {
+    background: linear-gradient(135deg, #ffe5cc 0%, #ffe0b2 100%);
+    border-left: 4px solid #ff9500;
+    animation: pulse-border 1.5s ease-in-out infinite;
+}
+
+.progress-item.pending,
+.progress-item.starting {
+    background: #f5f5f7;
+    border-left: 4px solid #86868b;
+}
+
+/* 进度项头部 - 新布局 */
+.progress-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+}
+
+.progress-icon-status {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+}
+
+.status-icon {
+    font-size: 24px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 122, 255, 0.1);
+    border-radius: 10px;
+    flex-shrink: 0;
+    animation: icon-pulse 2s ease-in-out infinite;
+}
+
+.progress-item.completed .status-icon {
+    background: rgba(52, 199, 89, 0.1);
+    animation: none;
+}
+
+.progress-item.error .status-icon {
+    background: rgba(255, 59, 48, 0.1);
+    animation: none;
+}
+
+.progress-title-group {
+    flex: 1;
+    min-width: 0;
+}
+
+.progress-title {
+    font-weight: 600;
+    color: #1d1d1f;
+    font-size: 1rem;
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.progress-subtitle {
+    font-size: 0.85rem;
+    color: #86868b;
+}
+
+.progress-status {
+    font-size: 0.85rem;
+    padding: 6px 14px;
+    border-radius: 16px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* 不同状态的徽章颜色 */
+.status-pending {
+    background: #f5f5f7;
+    color: #86868b;
+}
+
+.status-starting {
+    background: #ff9500;
+    color: white;
+    animation: badge-pulse 1.5s ease-in-out infinite;
+}
+
+.status-downloading {
+    background: #007AFF;
+    color: white;
+    animation: badge-pulse 2s ease-in-out infinite;
+}
+
+.status-converting {
+    background: #ff9500;
+    color: white;
+    animation: badge-pulse 1s ease-in-out infinite;
+}
+
+.status-completed {
+    background: #34c759;
+    color: white;
+}
+
+.status-error {
+    background: #ff3b30;
+    color: white;
+}
+
+/* 统计信息显示 */
+.progress-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 10px;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.stat-item.error-full {
+    grid-column: 1 / -1;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: #86868b;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stat-value {
+    font-size: 0.95rem;
+    color: #1d1d1f;
+    font-weight: 600;
+}
+
+.stat-value.success {
+    color: #34c759;
+}
+
+.stat-value.error {
+    color: #ff3b30;
+    word-break: break-word;
+}
+
+/* 进度条容器 - 增强版 */
+.progress-bar-wrapper {
+    margin-bottom: 12px;
+}
+
+.progress-bar-container {
+    width: 100%;
+    height: 8px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+/* 不同状态的进度条颜色 */
+.progress-bar-downloading {
+    background: linear-gradient(90deg, #007AFF 0%, #5856d6 100%);
+    animation: progress-shimmer 2s ease-in-out infinite;
+}
+
+.progress-bar-converting {
+    background: linear-gradient(90deg, #ff9500 0%, #ff6b00 100%);
+    animation: progress-shimmer 1.5s ease-in-out infinite;
+}
+
+.progress-bar-completed {
+    background: linear-gradient(90deg, #34c759 0%, #30d158 100%);
+}
+
+.progress-bar-error {
+    background: linear-gradient(90deg, #ff3b30 0%, #d32f2f 100%);
+}
+
+.progress-bar-pending {
+    background: #86868b;
+}
+
+.progress-bar-starting {
+    background: linear-gradient(90deg, #ff9500 0%, #ff6b00 100%);
+    animation: progress-shimmer 1s ease-in-out infinite;
+    width: 5% !important;
+}
+
+.progress-bar-text {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    z-index: 1;
+}
+
+/* 进度消息 */
+.progress-message {
+    font-size: 0.9rem;
+    color: #1d1d1f;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================
+   页脚
+   ============================================ */
+
+.footer {
+    text-align: center;
+    margin-top: 40px;
+    color: #86868b;
+    font-size: 0.9rem;
+}
+
+.footer p {
+    margin-bottom: 8px;
+}
+
+.footer-note {
+    font-size: 0.85rem;
+    color: #a1a1a6;
+}
+
+/* ============================================
+   文件列表样式
+   ============================================ */
+
+.files-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.file-item {
+    background: #f5f5f7;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.file-item:hover {
+    background: #ebebed;
+    border-color: #007AFF;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.15);
+}
+
+.file-item.playing {
+    background: linear-gradient(135deg, #d4e7ff 0%, #bbdefb 100%);
+    border-color: #007AFF;
+    border-width: 2px;
+}
+
+.file-icon {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 122, 255, 0.1);
+    border-radius: 10px;
+}
+
+.file-item.playing .file-icon {
+    background: rgba(0, 122, 255, 0.2);
+    animation: icon-pulse 2s ease-in-out infinite;
+}
+
+.file-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.file-name {
+    font-weight: 600;
+    color: #1d1d1f;
+    font-size: 0.95rem;
+    margin-bottom: 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-details {
+    display: flex;
+    gap: 12px;
+    font-size: 0.85rem;
+    color: #86868b;
+    flex-wrap: wrap;
+}
+
+.file-details span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* 文件操作按钮 */
+.file-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.btn-play {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: #007AFF;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+}
+
+.btn-play:hover {
+    background: #0051D5;
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
+}
+
+.btn-play:active {
+    transform: scale(0.95);
+}
+
+.file-item.playing .btn-play {
+    background: #ff3b30;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.file-item.playing .btn-play:hover {
+    background: #d32f2f;
+}
+
+/* 音频播放器容器 */
+.audio-player-container {
+    grid-column: 1 / -1;
+    background: rgba(0, 122, 255, 0.05);
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: -8px;
+    margin-bottom: 16px;
+    border: 2px solid rgba(0, 122, 255, 0.2);
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+        max-height: 0;
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        max-height: 200px;
+    }
+}
+
+.audio-player {
+    width: 100%;
+    height: 40px;
+    outline: none;
+}
+
+/* 自定义音频播放器样式（如果浏览器支持） */
+.audio-player::-webkit-media-controls-panel {
+    background-color: rgba(0, 122, 255, 0.1);
+    border-radius: 8px;
+}
+
+.audio-player::-webkit-media-controls-play-button {
+    background-color: #007AFF;
+    border-radius: 50%;
+}
+
+/* ============================================
+   响应式设计
+   ============================================ */
+
+@media (max-width: 768px) {
+    body {
+        padding: 12px;
+    }
+
+    .container {
+        max-width: 100%;
+    }
+
+    h1 {
+        font-size: 2rem;
+    }
+
+    .header {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .card {
+        padding: 20px;
+    }
+
+    .button-group {
+        flex-direction: column;
+    }
+
+    .btn {
+        width: 100%;
+    }
+
+    .files-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .file-item {
+        padding: 12px;
+    }
+    
+    .file-details {
+        flex-direction: column;
+        gap: 6px;
+    }
+}
+
+/* ============================================
+   动画效果 - 增强版
+   ============================================ */
+
+/* 淡入动画 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.task-item,
+.progress-item {
+    animation: fadeIn 0.3s ease;
+}
+
+/* 脉冲动画（用于下载中的状态） */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.progress-item.downloading .progress-status {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+/* 进度条闪烁动画 */
+@keyframes progress-shimmer {
+    0% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.8;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+/* 边框脉冲动画 */
+@keyframes pulse-border {
+    0%, 100% {
+        border-left-width: 4px;
+    }
+    50% {
+        border-left-width: 6px;
+    }
+}
+
+/* 图标脉冲动画 */
+@keyframes icon-pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+/* 徽章脉冲动画 */
+@keyframes badge-pulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(0, 122, 255, 0.4);
+    }
+    50% {
+        transform: scale(1.02);
+        box-shadow: 0 0 0 4px rgba(0, 122, 255, 0);
+    }
+}
+
+/* ============================================
+   通知提示样式
+   ============================================ */
+
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 400px;
+}
+
+.toast-notification {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    animation: slideInRight 0.3s ease;
+    border-left: 4px solid #007AFF;
+    min-width: 300px;
+}
+
+.toast-success {
+    border-left-color: #34c759;
+}
+
+.toast-error {
+    border-left-color: #ff3b30;
+}
+
+.toast-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.toast-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.toast-title {
+    font-weight: 600;
+    color: #1d1d1f;
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+}
+
+.toast-message {
+    font-size: 0.85rem;
+    color: #86868b;
+}
+
+.toast-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #86868b;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.toast-close:hover {
+    background: #f5f5f7;
+    color: #1d1d1f;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
