@@ -37,7 +37,31 @@ from flask_cors import CORS
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+# 禁用 requests 的 SSL 验证和警告
+import requests
+requests.packages.urllib3.disable_warnings()
+
 import yt_dlp
+
+# 尝试自动检测 ffmpeg 路径
+FFMPEG_PATH = None
+try:
+    # 方法1: 尝试使用 imageio-ffmpeg（如果已安装）
+    import imageio_ffmpeg
+    FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
+    print(f"检测到 ffmpeg: {FFMPEG_PATH}")
+except ImportError:
+    pass
+except Exception as e:
+    print(f"使用 imageio-ffmpeg 检测 ffmpeg 失败: {e}")
+
+# 如果 imageio-ffmpeg 不可用，尝试从系统 PATH 查找
+if not FFMPEG_PATH:
+    import shutil
+    ffmpeg_path = shutil.which('ffmpeg')
+    if ffmpeg_path:
+        FFMPEG_PATH = ffmpeg_path
+        print(f"从系统 PATH 检测到 ffmpeg: {FFMPEG_PATH}")
 
 # 创建 Flask 应用实例
 app = Flask(__name__)
@@ -148,16 +172,18 @@ def download_audio(url, filename, task_id):
                 'preferredcodec': 'mp3',       # 转换为 MP3 格式
                 'preferredquality': '192',     # 音频比特率 192kbps
             }],
+            # 如果检测到 ffmpeg 路径，则指定路径
+            **({'ffmpeg_location': FFMPEG_PATH} if FFMPEG_PATH else {}),
             'outtmpl': str(MP3_DIR / f'{filename}.%(ext)s'),  # 输出文件模板（保存到 mp3 目录）
             'progress_hooks': [lambda d: progress_hook(d, task_id)],  # 进度回调
             'quiet': False,  # 显示详细信息
             'no_warnings': False,
-            # SSL 证书相关配置（解决 macOS SSL 证书验证失败问题）
-            # 使用多个选项确保 SSL 验证被禁用
-            'nocheckcertificate': True,  # 禁用 SSL 证书验证（yt-dlp 选项）
+            # SSL 证书相关配置（彻底禁用 SSL 验证）
+            'nocheckcertificate': True,  # 禁用 SSL 证书验证（yt-dlp 主要选项）
             'no_check_certificate': True,  # 兼容性选项
             'verifyssl': False,  # 禁用 SSL 验证
             'no_check_ssl_certificate': True,  # 另一个 SSL 禁用选项
+            'prefer_insecure': True,  # 优先使用不安全的连接
             # HTTP 请求头配置
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'referer': 'https://www.youtube.com/',
@@ -188,10 +214,16 @@ def download_audio(url, filename, task_id):
         # 执行下载
         # 在创建 YoutubeDL 对象之前，再次确保 SSL 验证已禁用
         import ssl
+        
+        # 保存原始上下文
         original_context = ssl._create_default_https_context
-        ssl._create_default_https_context = ssl._create_unverified_context
+        
+        # 创建不验证SSL的上下文并设置为默认
+        unverified_context = ssl._create_unverified_context()
+        ssl._create_default_https_context = lambda: unverified_context
         
         try:
+            # 创建 YoutubeDL 对象并执行下载
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 # 先获取视频信息
                 info = ydl.extract_info(url, download=False)
@@ -204,7 +236,7 @@ def download_audio(url, filename, task_id):
                 # 开始下载和转换
                 ydl.download([url])
         finally:
-            # 恢复原始的 SSL 上下文（虽然我们不需要）
+            # 恢复原始的 SSL 上下文
             ssl._create_default_https_context = original_context
         
         # 任务完成

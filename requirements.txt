@@ -1,9 +1,12 @@
 # Web 框架
 Flask==3.0.0
 
-# YouTube 视频下载工具
-yt-dlp==2023.12.30
+# YouTube 视频下载工具（使用最新版本以修复SSL问题）
+yt-dlp>=2025.11.12
 
 # CORS 支持（如果需要跨域访问）
 flask-cors==4.0.0
+
+# FFmpeg 自动下载和配置（用于音频/视频处理）
+imageio-ffmpeg>=0.6.0
 
