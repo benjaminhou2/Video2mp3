@@ -25,13 +25,18 @@ try:
     os.environ['REQUESTS_CA_BUNDLE'] = cert_path
 except:
     pass
-
+# 导入必要的模块
 import json
 import threading
 import urllib.parse
+import tempfile
+import subprocess
+import shutil
+import traceback
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_cors import CORS
+from werkzeug.utils import secure_filename
 
 # 在导入 yt-dlp 之前，确保 SSL 验证已禁用
 import urllib3
@@ -67,12 +72,15 @@ if not FFMPEG_PATH:
 app = Flask(__name__)
 CORS(app)  # 允许跨域请求
 
+# 原视频文件所在目录（当前项目根目录）
+VIDEO_DIR = Path(__file__).parent
+
 # 配置下载目录
-DOWNLOAD_DIR = Path(__file__).parent / 'downloads'
+DOWNLOAD_DIR = VIDEO_DIR / 'downloads'
 DOWNLOAD_DIR.mkdir(exist_ok=True)  # 如果目录不存在则创建
 
-# MP3 文件存储目录
-MP3_DIR = DOWNLOAD_DIR / 'mp3'
+# MP3 文件存储目录（原视频目录下的MP3子目录）
+MP3_DIR = VIDEO_DIR / 'MP3'
 MP3_DIR.mkdir(exist_ok=True)  # 如果目录不存在则创建
 
 # 全局任务状态字典，用于存储每个任务的进度信息
@@ -222,12 +230,16 @@ def download_audio(url, filename, task_id):
         unverified_context = ssl._create_unverified_context()
         ssl._create_default_https_context = lambda: unverified_context
         
+        # 记录生成的文件名
+        generated_filename = None
+        
         try:
             # 创建 YoutubeDL 对象并执行下载
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 # 先获取视频信息
                 info = ydl.extract_info(url, download=False)
                 video_title = info.get('title', 'Unknown')
+                video_duration = info.get('duration', 0)  # 获取视频时长（秒）
                 
                 with tasks_lock:
                     tasks_status[task_id]['title'] = video_title
@@ -235,9 +247,103 @@ def download_audio(url, filename, task_id):
                 
                 # 开始下载和转换
                 ydl.download([url])
+                
+                # 获取生成的文件名
+                if '%(title)s' in filename:
+                    generated_filename = ydl.prepare_filename(info).replace('.webm', '.mp3').replace('.m4a', '.mp3')
+                else:
+                    generated_filename = str(MP3_DIR / f'{filename}.mp3')
         finally:
             # 恢复原始的 SSL 上下文
             ssl._create_default_https_context = original_context
+        
+        # 检查是否成功生成了文件
+        if not generated_filename or not os.path.exists(generated_filename):
+            with tasks_lock:
+                tasks_status[task_id]['status'] = 'error'
+                tasks_status[task_id]['message'] = '❌ 错误: 下载失败，未生成音频文件'
+            return
+        
+        # 转换为 Path 对象
+        generated_file_path = Path(generated_filename)
+        base_name = generated_file_path.stem
+        
+        # 更新任务状态为开始分割检查
+        with tasks_lock:
+            tasks_status[task_id]['status'] = 'processing'
+            tasks_status[task_id]['message'] = '正在检查文件大小...'
+        
+        # 计算需要分割的段数
+        bitrate_kbps = 192
+        format_type = 'mp3'
+        
+        # 估算文件大小
+        estimated_size_mb = estimate_audio_size(video_duration, bitrate_kbps, format_type) / (1024 * 1024)
+        
+        # 记录分割信息
+        print(f"YouTube 视频时长: {format_time(video_duration)}")
+        print(f"预计大小: {estimated_size_mb:.2f} MB")
+        
+        # 如果实际文件存在，使用实际大小
+        if generated_file_path.exists():
+            actual_size_mb = generated_file_path.stat().st_size / (1024 * 1024)
+            print(f"实际大小: {actual_size_mb:.2f} MB")
+        
+        # 获取音频时长
+        audio_duration = get_video_duration(generated_file_path)
+        if audio_duration <= 0:
+            audio_duration = video_duration  # 使用视频时长作为备选
+        
+        # 计算需要分割的段数
+        segments = calculate_segments(
+            audio_duration, 
+            max_size_mb=90, 
+            bitrate_kbps=bitrate_kbps, 
+            format=format_type
+        )
+        
+        # 如果需要分割
+        if len(segments) > 1:
+            with tasks_lock:
+                tasks_status[task_id]['status'] = 'processing'
+                tasks_status[task_id]['message'] = f'文件过大，正在分割为 {len(segments)} 个文件...'
+                tasks_status[task_id]['progress'] = '100%'
+            
+            # 记录分割信息
+            print(f"需要分割为 {len(segments)} 段")
+            
+            for i, (start, end) in enumerate(segments, 1):
+                print(f"段 {i}: {format_time(start)} - {format_time(end)}")
+            
+            try:
+                # 提取并分割音频
+                output_files = extract_audio_segments(
+                    generated_file_path,
+                    MP3_DIR,
+                    base_name,
+                    segments,
+                    output_format=format_type,
+                    bitrate_kbps=bitrate_kbps
+                )
+                
+                # 删除原始文件
+                os.remove(generated_file_path)
+                
+                print(f"音频分割完成，共生成 {len(output_files)} 个文件")
+                for file_info in output_files:
+                    print(f"- {file_info['filename']} ({file_info['size'] / (1024 * 1024):.2f} MB)")
+                    
+                with tasks_lock:
+                    tasks_status[task_id]['segments'] = len(output_files)
+            except Exception as e:
+                print(f"音频分割失败: {e}")
+                traceback.print_exc()
+                with tasks_lock:
+                    tasks_status[task_id]['status'] = 'error'
+                    tasks_status[task_id]['message'] = f'❌ 错误: 音频分割失败 - {str(e)}'
+                return
+        else:
+            print("音频文件大小在限制范围内，不需要分割")
         
         # 任务完成
         import time
@@ -453,7 +559,7 @@ def serve_audio(filename):
             return jsonify({'error': 'File not found'}), 404
         
         # 检查文件扩展名
-        if file_path.suffix.lower() != '.mp3':
+        if file_path.suffix.lower() not in ['.mp3', '.wav']:
             return jsonify({'error': 'Invalid file type'}), 400
         
         # 获取文件大小
@@ -650,6 +756,418 @@ def format_eta(eta_str):
         pass
     
     return f"剩余{eta_str}"
+
+
+def estimate_audio_size(duration_seconds, bitrate_kbps=192, format='mp3'):
+    """
+    估算音频文件大小
+    
+    Args:
+        duration_seconds: 音频时长（秒）
+        bitrate_kbps: 比特率（kbps）
+        format: 音频格式
+    
+    Returns:
+        估算的文件大小（字节）
+    """
+    # 音频文件大小计算公式：文件大小(字节) = (比特率(kbps) × 时长(秒)) / 8
+    # 对于MP3，这个公式比较准确；对于WAV，需要考虑采样率和位深度
+    if format == 'wav':
+        # WAV格式：假设44.1kHz采样率，16位深度，立体声
+        sample_rate = 44100
+        bit_depth = 16
+        channels = 2
+        size_bytes = (sample_rate * bit_depth * channels * duration_seconds) / 8
+    else:
+        # MP3等压缩格式
+        size_bytes = (bitrate_kbps * 1024 * duration_seconds) / 8
+    
+    return int(size_bytes)
+
+
+def calculate_segments(duration_seconds, max_size_mb=90, bitrate_kbps=192, format='mp3'):
+    """
+    计算音频文件需要分割的段数和每段时长
+    
+    Args:
+        duration_seconds: 总时长（秒）
+        max_size_mb: 最大文件大小（MB）
+        bitrate_kbps: 比特率（kbps）
+        format: 音频格式
+    
+    Returns:
+        list: 每段的开始时间和结束时间（秒）
+    """
+    # 估算总文件大小
+    total_size_bytes = estimate_audio_size(duration_seconds, bitrate_kbps, format)
+    total_size_mb = total_size_bytes / (1024 * 1024)
+    
+    # 如果不需要分割，直接返回一段
+    if total_size_mb <= max_size_mb:
+        return [(0, duration_seconds)]
+    
+    # 计算需要的段数
+    num_segments = int(total_size_mb / max_size_mb) + 1
+    
+    # 计算每段时长（尽量平均分配，最后一段可能略短）
+    segment_duration = duration_seconds / num_segments
+    
+    # 生成每段的时间范围
+    segments = []
+    for i in range(num_segments):
+        start_time = i * segment_duration
+        end_time = min((i + 1) * segment_duration, duration_seconds)
+        segments.append((start_time, end_time))
+    
+    return segments
+
+
+def generate_segment_filename(base_name, segment_index, total_segments, extension='mp3'):
+    """
+    为分割后的音频文件生成有逻辑的文件名
+    
+    Args:
+        base_name: 基础文件名
+        segment_index: 段索引（从1开始）
+        total_segments: 总段数
+        extension: 文件扩展名
+    
+    Returns:
+        str: 完整的文件名
+    """
+    # 如果只有一段，不添加分段标识
+    if total_segments == 1:
+        return f"{base_name}.{extension}"
+    
+    # 生成分段标识，确保文件名长度合理
+    segment_padding = len(str(total_segments))
+    segment_str = f"_part{segment_index:0{segment_padding}d}"
+    
+    return f"{base_name}{segment_str}.{extension}"
+
+
+def get_video_duration(video_path):
+    """
+    使用ffmpeg获取视频文件的时长
+    
+    Args:
+        video_path: 视频文件路径
+    
+    Returns:
+        float: 视频时长（秒）
+    """
+    # 尝试使用ffprobe（更适合获取媒体信息）
+    if FFMPEG_PATH:
+        # 如果有FFMPEG_PATH，那么ffprobe应该在相同目录
+        ffprobe_path = Path(FFMPEG_PATH).parent / 'ffprobe'
+        if ffprobe_path.exists():
+            probe_cmd = [str(ffprobe_path)]
+        else:
+            # 回退到使用ffmpeg
+            probe_cmd = [FFMPEG_PATH]
+    else:
+        # 尝试使用系统中的ffprobe或ffmpeg
+        import shutil
+        ffprobe_path = shutil.which('ffprobe')
+        if ffprobe_path:
+            probe_cmd = [ffprobe_path]
+        else:
+            probe_cmd = ['ffmpeg']
+    
+    # 使用更可靠的方式获取视频时长
+    if probe_cmd[0].endswith('ffprobe'):
+        # 使用ffprobe获取时长
+        cmd = probe_cmd + [
+            '-i', str(video_path),
+            '-v', 'quiet',
+            '-select_streams', 'v:0',
+            '-show_entries', 'stream=duration',
+            '-of', 'csv=p=0:nk=1'
+        ]
+    else:
+        # 使用ffmpeg获取时长（不使用-show_entries，因为ffmpeg不支持这个选项）
+        cmd = probe_cmd + [
+            '-i', str(video_path),
+            '-v', 'error',
+            '-f', 'null', '-'
+        ]
+    
+    try:
+        print(f"执行时长获取命令: {' '.join(cmd)}")
+        result = subprocess.run(
+            cmd,
+            check=False,  # 不使用check=True，因为ffmpeg可能返回非零退出码但仍然能输出时长
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True
+        )
+        
+        print(f"stdout: '{result.stdout.strip()}'")
+        print(f"stderr: '{result.stderr.strip()}'")
+        
+        # 尝试从stdout获取时长
+        duration_str = result.stdout.strip()
+        if duration_str:
+            return float(duration_str)
+        
+        # 如果stdout没有，尝试从stderr解析（某些ffmpeg版本可能输出到stderr）
+        import re
+        match = re.search(r'Duration: ([0-9]{2}):([0-9]{2}):([0-9]{2})\.([0-9]{2})', result.stderr)
+        if match:
+            hours = int(match.group(1))
+            minutes = int(match.group(2))
+            seconds = int(match.group(3))
+            milliseconds = int(match.group(4))
+            total_seconds = hours * 3600 + minutes * 60 + seconds + milliseconds / 100
+            return total_seconds
+        
+        print("无法从输出中解析时长")
+        return 0
+    except Exception as e:
+        print(f"获取视频时长失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return 0
+
+
+def extract_audio_segments(input_path, output_dir, base_name, segments, output_format='mp3', bitrate_kbps=192):
+    """
+    从视频文件中提取音频并分割为多个文件
+    
+    Args:
+        input_path: 输入视频文件路径
+        output_dir: 输出目录
+        base_name: 输出文件名基础
+        segments: 分割段的时间范围列表
+        output_format: 输出音频格式
+        bitrate_kbps: 输出音频比特率
+    
+    Returns:
+        list: 生成的音频文件列表
+    """
+    if FFMPEG_PATH:
+        ffmpeg_cmd = [FFMPEG_PATH]
+    else:
+        ffmpeg_cmd = ['ffmpeg']
+    
+    output_files = []
+    
+    # 设置基本参数
+    base_params = [
+        '-i', str(input_path),
+        '-vn',  # 禁用视频
+        '-ar', '44100',  # 采样率
+        '-y'  # 覆盖输出文件
+    ]
+    
+    # 设置格式特定参数
+    if output_format == 'mp3':
+        format_params = [
+            '-acodec', 'libmp3lame',
+            '-ab', f'{bitrate_kbps}k'
+        ]
+    else:  # wav
+        format_params = [
+            '-acodec', 'pcm_s16le'
+        ]
+    
+    # 处理每一段
+    for i, (start_time, end_time) in enumerate(segments, 1):
+        # 生成输出文件名
+        filename = generate_segment_filename(
+            base_name, i, len(segments), output_format
+        )
+        output_path = output_dir / filename
+        
+        # 构建完整的ffmpeg命令
+        cmd = ffmpeg_cmd + base_params + format_params
+        
+        # 如果不是第一段，需要设置开始时间和持续时间
+        duration = end_time - start_time
+        cmd.extend(['-ss', str(start_time), '-t', str(duration)])
+        
+        # 设置输出文件路径
+        cmd.append(str(output_path))
+        
+        print(f"正在处理段 {i}/{len(segments)}: {start_time:.2f}s - {end_time:.2f}s")
+        
+        try:
+            # 执行ffmpeg命令
+            subprocess.run(
+                cmd,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                universal_newlines=True
+            )
+            
+            # 检查输出文件是否存在
+            if output_path.exists():
+                output_files.append({
+                    'filename': filename,
+                    'path': output_path,
+                    'size': output_path.stat().st_size,
+                    'start_time': start_time,
+                    'end_time': end_time
+                })
+                print(f"段 {i} 处理完成: {filename}")
+            else:
+                print(f"段 {i} 处理失败，文件未生成")
+                
+        except subprocess.CalledProcessError as e:
+            print(f"处理段 {i} 失败: {e.stderr}")
+            raise
+    
+    return output_files
+
+
+# =========================================================================
+# 本地文件音频提取功能
+# =========================================================================
+
+@app.route('/api/local-extract', methods=['POST'])
+def local_extract_audio():
+    """
+    处理本地 MOV 文件的音频提取请求
+    """
+    try:
+        print("=== 开始处理本地 MOV 文件音频提取请求 ===")
+        
+        # 检查是否有文件上传
+        print(f"请求文件: {request.files.keys()}")
+        if 'file' not in request.files:
+            return jsonify({'error': '没有文件上传'}), 400
+        
+        file = request.files['file']
+        print(f"获取到文件: {file.filename}, 类型: {file.content_type}")
+        
+        # 检查文件名是否为空
+        if file.filename == '':
+            return jsonify({'error': '没有选择文件'}), 400
+        
+        # 获取输出格式和文件名
+        output_format = request.form.get('format', 'mp3').lower()
+        output_filename = request.form.get('filename', '')
+        print(f"输出格式: {output_format}, 输出文件名: {output_filename}")
+        
+        # 验证输出格式
+        if output_format not in ['mp3', 'wav']:
+            return jsonify({'error': '不支持的输出格式，仅支持 MP3 和 WAV'}), 400
+        
+        # 验证文件格式
+        if not file.filename.lower().endswith('.mov'):
+            return jsonify({'error': '请上传 MOV 格式的视频文件'}), 400
+        
+        # 创建临时目录
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_dir_path = Path(temp_dir)
+            print(f"创建临时目录: {temp_dir_path}")
+            
+            # 保存上传的文件
+            original_filename = secure_filename(file.filename)
+            original_file_path = temp_dir_path / original_filename
+            print(f"保存上传文件到: {original_file_path}")
+            
+            try:
+                file.save(original_file_path)
+                print(f"文件保存成功，大小: {original_file_path.stat().st_size} 字节")
+            except Exception as e:
+                print(f"文件保存失败: {e}")
+                return jsonify({'error': f'文件保存失败: {str(e)}'}), 500
+            
+            # 获取视频时长
+            print(f"开始获取视频时长: {original_file_path}")
+            duration_seconds = get_video_duration(original_file_path)
+            print(f"获取到视频时长: {duration_seconds} 秒")
+            
+            if duration_seconds <= 0:
+                return jsonify({'error': '无法获取视频时长'}), 500
+            
+            # 生成输出文件名基础
+            if not output_filename:
+                # 使用原文件名（不含扩展名）
+                base_name = original_filename.rsplit('.', 1)[0]
+            else:
+                base_name = output_filename
+            
+            # 确保文件名安全
+            base_name = secure_filename(base_name)
+            print(f"输出文件基础名: {base_name}")
+            
+            # 设置比特率
+            bitrate_kbps = 192
+            
+            # 计算需要分割的段数
+            segments = calculate_segments(
+                duration_seconds, 
+                max_size_mb=90, 
+                bitrate_kbps=bitrate_kbps, 
+                format=output_format
+            )
+            
+            # 记录分割信息
+            print(f"视频时长: {format_time(duration_seconds)}")
+            print(f"预计总大小: {estimate_audio_size(duration_seconds, bitrate_kbps, output_format) / (1024 * 1024):.2f} MB")
+            print(f"需要分割为 {len(segments)} 段")
+            
+            for i, (start, end) in enumerate(segments, 1):
+                print(f"段 {i}: {format_time(start)} - {format_time(end)}")
+            
+            try:
+                # 提取并分割音频
+                print(f"开始提取音频，输出目录: {MP3_DIR}")
+                output_files = extract_audio_segments(
+                    original_file_path,
+                    MP3_DIR,
+                    base_name,
+                    segments,
+                    output_format=output_format,
+                    bitrate_kbps=bitrate_kbps
+                )
+                print(f"音频提取完成，生成 {len(output_files)} 个文件")
+            except subprocess.CalledProcessError as e:
+                # 捕获 ffmpeg 错误
+                print(f"FFmpeg 错误: {e.stderr}")
+                return jsonify({
+                    'error': f'音频提取失败: {e.stderr}'
+                }), 500
+            except Exception as e:
+                # 捕获其他错误
+                print(f"音频提取过程中发生错误: {e}")
+                traceback.print_exc()
+                return jsonify({
+                    'error': f'处理失败: {str(e)}'
+                }), 500
+            
+            # 检查是否生成了输出文件
+            if not output_files:
+                return jsonify({'error': '音频提取失败，未生成输出文件'}), 500
+            
+            # 准备响应数据
+            response_data = {
+                'success': True,
+                'message': f'音频提取完成，共生成 {len(output_files)} 个文件',
+                'files': []
+            }
+            
+            # 添加每个生成的文件信息
+            for file_info in output_files:
+                response_data['files'].append({
+                    'filename': file_info['filename'],
+                    'size': file_info['size'],
+                    'size_str': format_size(file_info['size']),
+                    'url': f'/api/audio/{urllib.parse.quote(file_info["filename"])}'
+                })
+            
+            print(f"返回响应: {response_data}")
+            # 返回成功响应
+            return jsonify(response_data)
+            
+    except Exception as e:
+        # 捕获所有其他错误
+        print(f"处理本地提取请求时发生未捕获错误: {e}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':

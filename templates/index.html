@@ -79,6 +79,81 @@
             <div id="progressList"></div>
         </div>
 
+        <!-- 本地文件上传区域 -->
+        <div class="card">
+            <h2>本地 MOV 视频转音频</h2>
+            
+            <div class="upload-area">
+                <div class="input-group">
+                    <label>选择 MOV 文件</label>
+                    <input type="file" 
+                           id="movFileInput"
+                           class="input file-input"
+                           accept=".mov"
+                           required>
+                </div>
+                
+                <div class="input-group">
+                    <label>输出格式</label>
+                    <select id="outputFormat" class="input">
+                        <option value="mp3">MP3</option>
+                        <option value="wav">WAV</option>
+                    </select>
+                </div>
+                
+                <div class="input-group">
+                    <label>输出文件名（可选）</label>
+                    <input type="text" 
+                           id="outputFilename"
+                           class="input"
+                           placeholder="留空则使用原文件名">
+                </div>
+                
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="startLocalExtract()">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M8 2V12M8 12L4 8M8 12L12 8M2 14H14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        提取音频
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 本地文件提取进度 -->
+            <div id="localExtractProgress" style="display: none; margin-top: 20px;">
+                <div class="progress-card-header">
+                    <div class="progress-icon-status">
+                        <div class="status-icon">⏳</div>
+                        <div class="progress-title-group">
+                            <div class="progress-title" id="localExtractTitle">准备中...</div>
+                        </div>
+                    </div>
+                    <span class="progress-status status-pending" id="localExtractStatus">准备中</span>
+                </div>
+                
+                <div class="progress-bar-wrapper">
+                    <div class="progress-bar-container">
+                        <div class="progress-bar progress-bar-pending" 
+                             id="localExtractBar"
+                             style="width: 0%">
+                            <span class="progress-bar-text" id="localExtractBarText">0%</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="progress-stats" id="localExtractStats" style="display: none;">
+                    <div class="stat-item">
+                        <span class="stat-label">进度</span>
+                        <span class="stat-value" id="localExtractPercent">0%</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">状态</span>
+                        <span class="stat-value" id="localExtractMessage">准备开始...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- 已下载文件列表区域 -->
         <div class="card" id="filesSection">
             <div class="section-header">

@@ -23,8 +23,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // 加载文件列表
     loadFiles();
     
-    // 定期更新文件列表（每10秒，避免频繁刷新影响播放）
-    filesUpdateInterval = setInterval(loadFiles, 10000);
+    // 定期更新文件列表（每2秒，实现实时展示）
+    filesUpdateInterval = setInterval(loadFiles, 2000);
 });
 
 /**
@@ -879,4 +879,310 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// =========================================================================
+// 本地 MOV 文件音频提取功能
+// =========================================================================
+
+/**
+ * 开始本地 MOV 文件音频提取
+ */
+async function startLocalExtract() {
+    // 获取文件输入元素
+    const fileInput = document.getElementById('movFileInput');
+    const outputFormat = document.getElementById('outputFormat').value;
+    const outputFilename = document.getElementById('outputFilename').value.trim();
+    
+    // 验证文件选择
+    if (!fileInput.files || fileInput.files.length === 0) {
+        alert('请选择一个 MOV 格式的视频文件');
+        return;
+    }
+    
+    const file = fileInput.files[0];
+    
+    // 验证文件格式
+    if (file.type !== 'video/quicktime' && !file.name.toLowerCase().endsWith('.mov')) {
+        alert('请选择 MOV 格式的视频文件');
+        return;
+    }
+    
+    // 显示进度区域
+    showLocalExtractProgress();
+    updateLocalExtractProgress(0, '上传中...', 'uploading', file.name);
+    
+    try {
+        // 创建 FormData 对象
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('format', outputFormat);
+        
+        if (outputFilename) {
+            formData.append('filename', outputFilename);
+        }
+        
+        // 创建 XMLHttpRequest 对象，用于监控上传进度
+        const xhr = new XMLHttpRequest();
+        
+        // 监听上传进度
+        xhr.upload.addEventListener('progress', function(e) {
+            if (e.lengthComputable) {
+                const percent = Math.round((e.loaded / e.total) * 100); // 上传占100%进度
+                updateLocalExtractProgress(percent, '上传中...', 'uploading', file.name);
+            }
+        });
+        
+        // 监听开始发送请求
+        xhr.onloadstart = function() {
+            updateLocalExtractProgress(0, '开始上传...', 'pending', file.name);
+        };
+        
+        // 监听上传完成（准备处理）
+        xhr.upload.onload = function() {
+            updateLocalExtractProgress(100, '上传完成，正在提取音频...', 'extracting', file.name);
+        };
+        
+        // 监听响应
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                try {
+                    const result = JSON.parse(xhr.responseText);
+                    if (result.success) {
+                        updateLocalExtractProgress(100, '提取完成！', 'completed', file.name);
+                        showToastNotification('提取成功', `已成功从 ${file.name} 中提取音频`, 'success');
+                        // 刷新文件列表
+                        setTimeout(loadFiles, 1000);
+                    } else {
+                        updateLocalExtractProgress(100, `错误: ${result.error}`, 'error', file.name);
+                        showToastNotification('提取失败', result.error, 'error');
+                    }
+                } catch (error) {
+                    updateLocalExtractProgress(100, `解析响应失败: ${error.message}`, 'error', file.name);
+                    showToastNotification('提取失败', '服务器响应格式错误', 'error');
+                }
+            } else {
+                updateLocalExtractProgress(100, `请求失败: ${xhr.statusText}`, 'error', file.name);
+                showToastNotification('提取失败', `服务器错误: ${xhr.status}`, 'error');
+            }
+        };
+        
+        // 监听错误
+        xhr.onerror = function() {
+            updateLocalExtractProgress(0, '网络错误', 'error', file.name);
+            showToastNotification('提取失败', '网络连接错误', 'error');
+        };
+        
+        // 发送请求
+        xhr.open('POST', '/api/local-extract', true);
+        xhr.send(formData);
+        
+    } catch (error) {
+        updateLocalExtractProgress(0, `操作失败: ${error.message}`, 'error', file.name);
+        showToastNotification('提取失败', error.message, 'error');
+    }
+}
+
+/**
+ * 显示本地提取进度区域
+ */
+function showLocalExtractProgress() {
+    document.getElementById('localExtractProgress').style.display = 'block';
+}
+
+/**
+ * 隐藏本地提取进度区域
+ */
+function hideLocalExtractProgress() {
+    document.getElementById('localExtractProgress').style.display = 'none';
+}
+
+/**
+ * 更新本地提取进度
+ * @param {number} percent - 进度百分比 (0-100)
+ * @param {string} message - 状态消息
+ * @param {string} status - 状态类型 (pending, uploading, extracting, completed, error)
+ * @param {string} filename - 文件名
+ */
+// 用于存储动态进度更新的定时器
+let extractProgressInterval = null;
+// 用于存储当前的动态进度值
+let currentExtractProgress = 0;
+
+/**
+ * 更新本地提取进度
+ * @param {number} percent - 进度百分比 (0-100)
+ * @param {string} message - 状态消息
+ * @param {string} status - 状态类型 (pending, uploading, extracting, completed, error)
+ * @param {string} filename - 文件名
+ */
+function updateLocalExtractProgress(percent, message, status, filename) {
+    // 状态配置
+    const statusConfig = {
+        'pending': { text: '准备中', icon: '⏳', barClass: 'progress-bar-pending' },
+        'uploading': { text: '上传中', icon: '⬆️', barClass: 'progress-bar-uploading' },
+        'extracting': { text: '提取中', icon: '🔄', barClass: 'progress-bar-extracting' },
+        'completed': { text: '完成', icon: '✅', barClass: 'progress-bar-completed' },
+        'error': { text: '错误', icon: '❌', barClass: 'progress-bar-error' }
+    };
+    
+    const config = statusConfig[status] || statusConfig['pending'];
+    
+    // 更新标题
+    const titleElement = document.getElementById('localExtractTitle');
+    titleElement.textContent = filename ? `正在处理: ${filename}` : '准备中...';
+    
+    // 更新状态
+    const statusElement = document.getElementById('localExtractStatus');
+    statusElement.textContent = config.text;
+    statusElement.className = `progress-status status-${status}`;
+    
+    // 更新图标
+    const iconElement = document.querySelector('#localExtractProgress .status-icon');
+    iconElement.textContent = config.icon;
+    
+    // 更新进度条
+    const barElement = document.getElementById('localExtractBar');
+    const barTextElement = document.getElementById('localExtractBarText');
+    
+    // 更新统计信息
+    const statsElement = document.getElementById('localExtractStats');
+    statsElement.style.display = 'flex';
+    
+    const percentElement = document.getElementById('localExtractPercent');
+    const messageElement = document.getElementById('localExtractMessage');
+    
+    // 处理不同状态的进度更新
+    if (status === 'extracting') {
+        // 开始动态进度更新
+        startDynamicProgress(percent, message);
+    } else {
+        // 清除动态进度更新
+        stopDynamicProgress();
+        
+        // 更新固定进度
+        barElement.style.width = `${percent}%`;
+        barTextElement.textContent = `${percent}%`;
+        percentElement.textContent = `${percent}%`;
+        messageElement.textContent = message;
+    }
+    
+    // 更新进度条类
+    barElement.className = `progress-bar ${config.barClass}`;
+    
+    // 如果状态是错误，显示错误样式
+    if (status === 'error') {
+        messageElement.className = 'stat-value error';
+    } else {
+        messageElement.className = 'stat-value';
+    }
+    
+    // 如果状态是完成或错误，显示完成或错误信息
+    if (status === 'completed' || status === 'error') {
+        // 添加完成/错误动画效果
+        const progressElement = document.getElementById('localExtractProgress');
+        progressElement.classList.add('progress-complete');
+        
+        // 一段时间后清除动画类
+        setTimeout(() => {
+            progressElement.classList.remove('progress-complete');
+        }, 2000);
+    }
+}
+
+/**
+ * 开始动态进度更新
+ * @param {number} initialPercent - 初始进度百分比
+ * @param {string} baseMessage - 基础状态消息
+ */
+function startDynamicProgress(initialPercent, baseMessage) {
+    // 清除现有的定时器
+    stopDynamicProgress();
+    
+    // 设置初始进度
+    currentExtractProgress = initialPercent;
+    
+    // 获取元素
+    const barElement = document.getElementById('localExtractBar');
+    const barTextElement = document.getElementById('localExtractBarText');
+    const percentElement = document.getElementById('localExtractPercent');
+    const messageElement = document.getElementById('localExtractMessage');
+    
+    // 计算目标进度（在初始进度和100%之间）
+    const targetProgress = 100;
+    
+    // 更新进度函数
+    const updateProgress = () => {
+        // 计算进度增量（动态调整，使进度在提取过程中平滑增长）
+        const progressIncrement = Math.random() * 2 + 0.5;
+        
+        // 更新进度
+        currentExtractProgress += progressIncrement;
+        
+        // 确保进度不超过目标
+        if (currentExtractProgress >= targetProgress) {
+            currentExtractProgress = targetProgress;
+            stopDynamicProgress();
+        }
+        
+        // 计算剩余时间（模拟）
+        const remainingSeconds = Math.round((targetProgress - currentExtractProgress) / 2);
+        const timeMessage = remainingSeconds > 0 ? `预计剩余 ${remainingSeconds} 秒` : '';
+        
+        // 更新显示
+        const displayPercent = Math.round(currentExtractProgress);
+        barElement.style.width = `${displayPercent}%`;
+        barTextElement.textContent = `${displayPercent}%`;
+        percentElement.textContent = `${displayPercent}%`;
+        messageElement.textContent = `${baseMessage} ${timeMessage}`;
+    };
+    
+    // 设置定时器，每500毫秒更新一次进度
+    extractProgressInterval = setInterval(updateProgress, 500);
+    
+    // 立即执行一次更新
+    updateProgress();
+}
+
+/**
+ * 停止动态进度更新
+ */
+function stopDynamicProgress() {
+    if (extractProgressInterval) {
+        clearInterval(extractProgressInterval);
+        extractProgressInterval = null;
+    }
+}
+
+// 添加本地提取相关的 CSS 样式
+const localExtractStyle = document.createElement('style');
+localExtractStyle.textContent = `
+    .file-input {
+        padding: 8px;
+        border-radius: 8px;
+        border: 1px solid #d1d1d6;
+        background-color: #ffffff;
+        font-size: 14px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .file-input:focus {
+        outline: none;
+        border-color: #007AFF;
+        box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.2);
+    }
+    
+    .progress-bar-uploading {
+        background: linear-gradient(90deg, #007AFF, #0056b3);
+    }
+    
+    .progress-bar-extracting {
+        background: linear-gradient(90deg, #34C759, #28a745);
+    }
+    
+    .stat-value.error {
+        color: #ff3b30;
+    }
+`;
+document.head.appendChild(localExtractStyle);
 

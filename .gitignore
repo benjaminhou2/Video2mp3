@@ -42,6 +42,10 @@ Thumbs.db
 downloads/*
 !downloads/.gitkeep
 
+# MP3 音频文件（保留目录结构，但不提交文件）
+MP3/*.mp3
+!MP3/.gitkeep
+
 # 日志文件
 *.log
 
